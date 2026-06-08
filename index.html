@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>용스튜디오 프롬프터</title>
+<style>
+  :root{
+    --bg:#0a0a0b; --panel:#141416; --border:#26262a;
+    --text:#f4f4f5; --dim:#52525b; --dimmer:#27272a;
+    --accent:#f5a623; --accentInk:#1a1306;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; height:100%;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'Apple SD Gothic Neo','Malgun Gothic','Pretendard',system-ui,-apple-system,sans-serif;
+    overflow:hidden;
+  }
+  .screen{height:100%; display:none; flex-direction:column;}
+  .screen.active{display:flex;}
+  button{font-family:inherit; cursor:pointer; border:none;}
+
+  /* ── 시작 화면 ── */
+  #edit{align-items:center; overflow-y:auto; padding:40px 20px;}
+  .wrap{width:100%; max-width:720px; margin:auto;}
+  .brand{font-size:13px; letter-spacing:.25em; color:var(--accent); font-weight:700;}
+  .brand span{color:var(--dim);}
+  h1{font-size:30px; font-weight:800; margin:6px 0 4px; letter-spacing:-.02em;}
+  .sub{color:var(--dim); font-size:16px; margin:0 0 22px; line-height:1.6;}
+  textarea{
+    width:100%; min-height:300px; background:var(--panel); color:var(--text);
+    border:1px solid var(--border); border-radius:14px; padding:20px 22px;
+    font-size:18px; line-height:1.75; resize:vertical; outline:none;
+    font-family:inherit;
+  }
+  textarea:focus{border-color:var(--accent);}
+  textarea::placeholder{color:var(--dim);}
+  .row{display:flex; justify-content:space-between; align-items:center; gap:16px; margin-top:18px; flex-wrap:wrap;}
+  .count{color:var(--dim); font-size:15px;}
+  .start{
+    background:var(--accent); color:var(--accentInk); border-radius:12px;
+    padding:16px 38px; font-size:18px; font-weight:800;
+  }
+  .start:disabled{background:var(--dimmer); color:var(--dim); cursor:default;}
+  .modeBox{display:flex; align-items:center; gap:10px; margin-top:18px; flex-wrap:wrap;}
+  .modeBox .lbl{font-size:14px; color:var(--dim); font-weight:600;}
+  .modeBtns{display:flex; gap:6px; background:var(--panel); border:1px solid var(--border);
+            border-radius:10px; padding:4px;}
+  .modeBtn{background:transparent; color:var(--dim); border-radius:7px;
+           padding:9px 16px; font-size:15px; font-weight:700;}
+  .modeBtn.on{background:var(--accent); color:var(--accentInk);}
+  .tips{
+    margin-top:26px; padding:18px 20px; background:var(--panel);
+    border:1px solid var(--border); border-radius:12px;
+    font-size:15px; color:var(--dim); line-height:1.9;
+  }
+  .tips b{color:var(--text);}
+
+  /* ── 실행 화면 ── */
+  #run{}
+  .bar{height:4px; background:var(--dimmer); flex-shrink:0;}
+  .fill{height:100%; width:0%; background:var(--accent); transition:width .3s ease;}
+  .top{display:flex; justify-content:space-between; align-items:center;
+       padding:12px 18px; flex-shrink:0; font-size:14px; color:var(--dim);}
+  .ghost{background:transparent; border:1px solid var(--border); color:var(--text);
+         border-radius:8px; padding:8px 14px; font-size:14px; font-weight:600;}
+  .pos{font-variant-numeric:tabular-nums; letter-spacing:.05em;}
+  .pos b{color:var(--text);}
+
+  .stage{flex:1; display:flex; flex-direction:column; justify-content:center;
+         align-items:center; gap:24px; padding:0 6vw; text-align:center;
+         cursor:pointer; user-select:none; overflow:hidden; position:relative;}
+  .peek{color:var(--dim); line-height:1.3; max-width:90%;
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .cur{font-weight:800; line-height:1.34; letter-spacing:-.01em;
+       max-width:min(92%, 17em); word-break:keep-all; word-wrap:break-word;
+       text-wrap:balance; text-shadow:0 2px 30px rgba(0,0,0,.5);}
+  .mirror .stage{transform:scaleX(-1);}
+
+  /* 클릭 안내 힌트 */
+  .hint{position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
+        background:rgba(245,166,35,.15); color:var(--accent);
+        padding:10px 20px; border-radius:999px; font-size:15px; font-weight:700;
+        border:1px solid rgba(245,166,35,.4); pointer-events:none;
+        animation:pulse 1.6s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:.6;}50%{opacity:1;}}
+
+  /* 하단 컨트롤 */
+  .ctrl{flex-shrink:0; border-top:1px solid var(--border); background:var(--panel);
+        padding:14px 16px; display:flex; align-items:center; gap:14px;
+        flex-wrap:wrap; justify-content:center;}
+  .nav{background:var(--dimmer); color:var(--text); border-radius:10px;
+       padding:14px 26px; font-size:17px; font-weight:700;}
+  .nav:disabled{color:var(--dim); cursor:default;}
+  .auto{min-width:104px;}
+  .auto.on{background:var(--accent); color:var(--accentInk);}
+  .sep{width:1px; height:30px; background:var(--border);}
+  .grp{display:flex; align-items:center; gap:8px;}
+  .lab{font-size:13px; color:var(--dim); font-weight:600;}
+  .stepper{display:flex; align-items:center; gap:5px; background:var(--bg);
+           border:1px solid var(--border); border-radius:9px; padding:5px 7px;}
+  .step{width:32px; height:32px; border-radius:6px; background:var(--dimmer);
+        color:var(--text); font-size:20px; font-weight:700; line-height:1;
+        display:flex; align-items:center; justify-content:center;}
+  .val{min-width:50px; text-align:center; font-size:15px; font-weight:700;
+       font-variant-numeric:tabular-nums;}
+
+  @keyframes fadeIn{from{opacity:0; transform:translateY(8px);}to{opacity:1; transform:translateY(0);}}
+  .anim{animation:fadeIn .25s ease;}
+</style>
+</head>
+<body>
+
+<!-- 시작 화면 -->
+<div id="edit" class="screen active">
+  <div class="wrap">
+    <div class="brand">YONG STUDIO <span>· PROMPTER</span></div>
+    <h1>대본 프롬프터</h1>
+    <p class="sub">대본을 붙여넣고 시작을 누르면, 한 문장씩 큰 글씨로 보여드려요.<br>마침표가 없어도 말끝을 알아서 끊어줍니다.</p>
+
+    <textarea id="script" placeholder="여기에 대본을 붙여넣으세요.
+
+마침표(.)나 물음표(?), 느낌표(!) 기준으로 한 문장씩 나뉘어요.
+읽기 편하게 짧게 끊어두면 더 좋아요.
+
+안녕하세요, 오늘은…"></textarea>
+
+    <div class="modeBox">
+      <span class="lbl">나누는 기준</span>
+      <div class="modeBtns">
+        <button class="modeBtn on" data-mode="sentence">문장 단위</button>
+        <button class="modeBtn" data-mode="line">줄바꿈 단위</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <span class="count" id="count">대본을 입력해 주세요</span>
+      <button class="start" id="startBtn" disabled>프롬프터 시작 →</button>
+    </div>
+
+    <div class="tips">
+      <b>사용법</b><br>
+      · 글을 넣고 <b>시작</b>을 누르세요.<br>
+      · 다음 문장으로 넘어가려면 <b>화면을 손가락이나 마우스로 누르면</b> 돼요.<br>
+      · 아래 <b>이전 / 다음</b> 큰 버튼을 눌러도 됩니다.<br>
+      · <b>자동</b>을 켜면 정해진 속도로 알아서 넘어가요.<br>
+      · 키보드: Space·→ 다음 · ← 이전 · +/− 글자 크기 · Esc 처음으로
+    </div>
+  </div>
+</div>
+
+<!-- 실행 화면 -->
+<div id="run" class="screen">
+  <div class="bar"><div class="fill" id="fill"></div></div>
+  <div class="top">
+    <button class="ghost" id="backBtn">← 처음으로</button>
+    <span class="pos"><b id="posNow">1</b> / <span id="posTotal">1</span></span>
+    <button class="ghost" id="mirrorBtn">반전</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="peek" id="peekPrev">&nbsp;</div>
+    <div class="cur anim" id="curLine">&nbsp;</div>
+    <div class="peek" id="peekNext">&nbsp;</div>
+    <div class="hint" id="hint">👆 화면을 누르면 다음 줄</div>
+  </div>
+
+  <div class="ctrl">
+    <button class="nav" id="prevBtn">‹ 이전</button>
+    <button class="nav auto" id="autoBtn">▶ 자동</button>
+    <button class="nav" id="nextBtn">다음 ›</button>
+    <div class="sep"></div>
+    <div class="grp">
+      <span class="lab">글자</span>
+      <div class="stepper">
+        <button class="step" data-font="-1">−</button>
+        <span class="val" id="fontVal">68</span>
+        <button class="step" data-font="1">+</button>
+      </div>
+    </div>
+    <div class="grp">
+      <span class="lab">속도</span>
+      <div class="stepper">
+        <button class="step" data-speed="1">−</button>
+        <span class="val" id="speedVal">3.5s</span>
+        <button class="step" data-speed="-1">+</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var S = {
+    raw:"", lines:[], i:0, font:68, speed:3.5,
+    mirror:false, playing:false, timer:null, hintShown:false,
+    split:"sentence"
+  };
+
+  var $ = function(id){ return document.getElementById(id); };
+  var editScreen=$("edit"), runScreen=$("run");
+  var ta=$("script"), countEl=$("count"), startBtn=$("startBtn");
+
+  // 저장된 대본 불러오기 (파일로 열었을 때만 동작, 미리보기에선 조용히 무시)
+  try{
+    var saved = localStorage.getItem("prompter:lastScript");
+    if(saved){ ta.value = saved; }
+  }catch(e){}
+
+  function splitChunks(t){
+    if(S.split === "line"){
+      var res = [];
+      t.split("\n").forEach(function(line){
+        var l = line.trim();
+        if(l) res.push(l);
+      });
+      return res;
+    }
+    return smartSentences(t);
+  }
+
+  // 구두점이 없어도 한국어 말끝(어미)과 길이를 보고 읽기 좋게 끊는다
+  function smartSentences(text){
+    // 1) (01:03) 같은 타임스탬프 제거
+    text = text.replace(/\(\s*\d{1,2}:\d{2}\s*\)/g, " ");
+    // 2) 모든 공백/줄바꿈을 한 칸으로 정규화
+    text = text.replace(/\s+/g, " ").trim();
+    if(!text) return [];
+
+    var words = text.split(" ");
+    var HARD = /[.!?。…？！]+$/;                         // 구두점이 있으면 무조건 끊기
+    var END  = /(요|죠|쥬|네요|군요|네|구나|군|함)$|니다$/; // 한국어 종결/해요체 말끝
+    var SOFT = /(고요|는데요|고|며|면|서|지만|는데|니까|거나|어서|아서|려고|도록|든지)$/; // 연결 말끝(길 때만)
+    var MIN_SOFT = 30;  // 이만큼 길어지면 연결 어미에서도 끊기
+    var MAX_LEN  = 55;  // 말끝이 안 나와도 이 길이를 넘으면 강제로 끊기
+
+    var out = [], buf = [], len = 0;
+    function flush(){ if(buf.length){ out.push(buf.join(" ").trim()); buf = []; len = 0; } }
+
+    for(var k=0; k<words.length; k++){
+      var w = words[k];
+      buf.push(w);
+      len += w.length + 1;
+      if(HARD.test(w) || END.test(w)){
+        flush();
+      } else if(len >= MIN_SOFT && SOFT.test(w)){
+        flush();
+      } else if(len >= MAX_LEN){
+        flush();
+      }
+    }
+    flush();
+    return out.filter(function(s){ return s.length > 0; });
+  }
+  function refreshCount(){
+    var n = splitChunks(ta.value).length;
+    countEl.textContent = n>0 ? (n + (S.split==="line" ? "줄 인식됨" : "문장 인식됨")) : "대본을 입력해 주세요";
+    startBtn.disabled = n===0;
+  }
+  ta.addEventListener("input", refreshCount);
+  refreshCount();
+
+  // 화면 전환
+  function show(name){
+    editScreen.classList.toggle("active", name==="edit");
+    runScreen.classList.toggle("active", name==="run");
+  }
+
+  function start(){
+    S.lines = splitChunks(ta.value);
+    if(S.lines.length===0) return;
+    S.i = 0; S.playing = false;
+    try{ localStorage.setItem("prompter:lastScript", ta.value); }catch(e){}
+    $("posTotal").textContent = S.lines.length;
+    show("run");
+    render();
+    // 클릭 안내 힌트: 처음 한 번만, 4초 후 사라짐
+    if(!S.hintShown){
+      S.hintShown = true;
+      $("hint").style.display = "block";
+      setTimeout(function(){ $("hint").style.display="none"; }, 4000);
+    }
+  }
+
+  function fitFont(el){
+    var stage = $("stage");
+    var avail = stage.clientHeight * 0.58; // 현재 문장이 차지할 수 있는 높이
+    var size = S.font;
+    el.style.fontSize = size + "px";
+    var guard = 0;
+    while(el.scrollHeight > avail && size > 24 && guard < 80){
+      size -= 2;
+      el.style.fontSize = size + "px";
+      guard++;
+    }
+  }
+
+  function render(){
+    var cur = S.lines[S.i] || "";
+    var prev = S.i>0 ? S.lines[S.i-1] : "";
+    var next = S.i<S.lines.length-1 ? S.lines[S.i+1] : "";
+    var curEl = $("curLine");
+    curEl.textContent = cur;
+    curEl.style.fontSize = S.font + "px";
+    fitFont(curEl);
+    // 다시 애니메이션
+    curEl.classList.remove("anim"); void curEl.offsetWidth; curEl.classList.add("anim");
+
+    var peekSize = Math.round(S.font*0.34);
+    $("peekPrev").textContent = prev || "\u00A0";
+    $("peekNext").textContent = next || "\u00A0";
+    $("peekPrev").style.fontSize = peekSize+"px";
+    $("peekNext").style.fontSize = peekSize+"px";
+
+    $("posNow").textContent = S.i+1;
+    var pct = S.lines.length>1 ? (S.i/(S.lines.length-1))*100 : 0;
+    $("fill").style.width = pct+"%";
+
+    $("prevBtn").disabled = S.i===0;
+    $("nextBtn").disabled = S.i>=S.lines.length-1;
+  }
+
+  function next(){
+    if(S.i < S.lines.length-1){ S.i++; render(); }
+    else { stopAuto(); }
+  }
+  function prev(){ if(S.i>0){ S.i--; render(); } }
+
+  function startAuto(){
+    S.playing = true; $("autoBtn").classList.add("on");
+    $("autoBtn").textContent = "❚❚ 멈춤";
+    tick();
+  }
+  function stopAuto(){
+    S.playing = false; $("autoBtn").classList.remove("on");
+    $("autoBtn").textContent = "▶ 자동";
+    clearTimeout(S.timer);
+  }
+  function tick(){
+    clearTimeout(S.timer);
+    if(!S.playing) return;
+    if(S.i >= S.lines.length-1){ stopAuto(); return; }
+    S.timer = setTimeout(function(){ next(); tick(); }, S.speed*1000);
+  }
+
+  // 분할 방식 토글
+  document.querySelectorAll(".modeBtn").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      S.split = btn.dataset.mode;
+      document.querySelectorAll(".modeBtn").forEach(function(b){
+        b.classList.toggle("on", b === btn);
+      });
+      refreshCount();
+    });
+  });
+
+  // 이벤트 연결
+  startBtn.addEventListener("click", start);
+  $("backBtn").addEventListener("click", function(){ stopAuto(); show("edit"); });
+  $("prevBtn").addEventListener("click", function(e){ e.stopPropagation(); prev(); });
+  $("nextBtn").addEventListener("click", function(e){ e.stopPropagation(); next(); });
+  $("stage").addEventListener("click", function(){ $("hint").style.display="none"; next(); });
+
+  // 마우스 휠 / 트랙패드로 위아래 이동
+  var wheelLock = false;
+  $("stage").addEventListener("wheel", function(e){
+    e.preventDefault();
+    if(wheelLock) return;
+    if(Math.abs(e.deltaY) < 4) return; // 미세한 떨림 무시
+    wheelLock = true;
+    setTimeout(function(){ wheelLock = false; }, 130);
+    $("hint").style.display = "none";
+    if(e.deltaY > 0) next(); else prev();
+  }, { passive:false });
+
+  $("autoBtn").addEventListener("click", function(e){
+    e.stopPropagation();
+    S.playing ? stopAuto() : startAuto();
+  });
+
+  $("mirrorBtn").addEventListener("click", function(){
+    S.mirror = !S.mirror;
+    document.body.classList.toggle("mirror", S.mirror);
+    $("mirrorBtn").textContent = S.mirror ? "반전 ON" : "반전";
+  });
+
+  // 글자/속도 조절
+  document.querySelectorAll(".step").forEach(function(btn){
+    btn.addEventListener("click", function(e){
+      e.stopPropagation();
+      if(btn.dataset.font){
+        S.font = Math.max(28, Math.min(160, S.font + parseInt(btn.dataset.font)*6));
+        $("fontVal").textContent = S.font;
+        render();
+      } else if(btn.dataset.speed){
+        S.speed = Math.max(1, Math.min(12, S.speed + parseInt(btn.dataset.speed)*0.5));
+        $("speedVal").textContent = S.speed.toFixed(1)+"s";
+      }
+    });
+  });
+
+  // 키보드
+  document.addEventListener("keydown", function(e){
+    if(!runScreen.classList.contains("active")) return;
+    var k = e.key;
+    if(k===" "||k==="ArrowRight"||k==="ArrowDown"){ e.preventDefault(); next(); }
+    else if(k==="ArrowLeft"||k==="ArrowUp"){ e.preventDefault(); prev(); }
+    else if(k==="Escape"){ stopAuto(); show("edit"); }
+    else if(k==="+"||k==="="){ S.font=Math.min(160,S.font+6); $("fontVal").textContent=S.font; render(); }
+    else if(k==="-"){ S.font=Math.max(28,S.font-6); $("fontVal").textContent=S.font; render(); }
+    else if(k==="m"||k==="M"){ $("mirrorBtn").click(); }
+    else if(k==="p"||k==="P"){ S.playing?stopAuto():startAuto(); }
+  });
+
+  // 창 크기/회전 시 글자 크기 다시 맞추기
+  window.addEventListener("resize", function(){
+    if(runScreen.classList.contains("active")) render();
+  });
+})();
+</script>
+</body>
+</html>
